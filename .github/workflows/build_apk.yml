@@ -21,39 +21,43 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update -qq
-        sudo apt-get install -y -qq \
-          python3-pip \
-          build-essential \
-          git \
-          python3-dev \
-          libffi-dev \
-          libssl-dev \
-          libncurses5-dev \
-          zlib1g-dev \
-          libreadline-dev \
-          libbz2-dev \
-          libsqlite3-dev \
-          openjdk-11-jdk \
-          zip \
-          unzip \
-          autoconf \
-          libtool \
-          pkg-config \
-          cmake
+        sudo apt-get install -y -qq python3-pip build-essential git python3-dev libffi-dev libssl-dev libncurses5-dev zlib1g-dev libreadline-dev libbz2-dev libsqlite3-dev openjdk-11-jdk zip unzip autoconf libtool pkg-config cmake wget
     
     - name: Install Python packages
       run: |
         python3 -m pip install --upgrade pip setuptools wheel
         python3 -m pip install cython buildozer
     
-    - name: Clean Buildozer cache
+    - name: Setup Android SDK manually
       run: |
-        rm -rf ~/.buildozer
-        rm -rf .buildozer
+        # Setup directories
+        export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
+        export ANDROID_SDK_ROOT=$ANDROID_HOME
+        mkdir -p $ANDROID_HOME
+        
+        # Download command line tools
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+        unzip -q commandlinetools-linux-9477386_latest.zip
+        mkdir -p $ANDROID_HOME/cmdline-tools
+        mv cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+        
+        # Set environment
+        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
+        
+        # Accept licenses
+        mkdir -p $HOME/.android
+        touch $HOME/.android/repositories.cfg
+        yes | sdkmanager --licenses > /dev/null 2>&1 || true
+        
+        # Install required SDK components
+        sdkmanager "platform-tools" "platforms;android-30" "build-tools;30.0.3" > /dev/null 2>&1 || true
+        sdkmanager "extras;android;m2repository" > /dev/null 2>&1 || true
     
     - name: Build APK
       run: |
-        # Biarkan Buildozer download SDK sendiri
+        export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
+        export ANDROID_SDK_ROOT=$ANDROID_HOME
+        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
         buildozer android debug
       timeout-minutes: 90
     
@@ -65,10 +69,11 @@ jobs:
         path: bin/*.apk
         retention-days: 90
     
-    - name: Upload build log if failed
+    - name: Check buildozer log if failed
       if: failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-log
-        path: .buildozer/android/platform/*.log
-        retention-days: 7
+      run: |
+        echo "=== Buildozer Log ==="
+        cat .buildozer/android/platform/build.log 2>/dev/null || echo "No build log found"
+        echo "=== SDK Contents ==="
+        ls -la $HOME/.buildozer/android/platform/android-sdk/ 2>/dev/null || echo "SDK not found"
+        ls -la $HOME/.buildozer/android/platform/android-sdk/build-tools/ 2>/dev/null || echo "Build tools not found"
