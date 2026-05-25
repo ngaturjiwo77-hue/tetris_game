@@ -16,66 +16,45 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.10'
+        python-version: '3.9'
     
     - name: Install dependencies
       run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          python3-pip \
-          build-essential \
-          git \
-          python3-dev \
-          python3-setuptools \
-          python3-virtualenv \
-          libffi-dev \
-          libssl-dev \
-          libncurses5-dev \
-          libncursesw5-dev \
-          libtinfo5 \
-          zlib1g-dev \
-          libreadline-dev \
-          libbz2-dev \
-          libsqlite3-dev \
-          openjdk-11-jdk \
-          zip \
-          unzip \
-          autoconf \
-          libtool \
-          pkg-config \
-          cmake
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq python3-pip build-essential git python3-dev libffi-dev libssl-dev libncurses5-dev zlib1g-dev libreadline-dev libbz2-dev libsqlite3-dev openjdk-11-jdk zip unzip autoconf libtool pkg-config cmake
         pip install --upgrade pip setuptools wheel
         pip install cython buildozer
     
     - name: Create Buildozer spec
       run: |
-        cat > buildozer.spec << 'SPECEOF'
+        cat > buildozer.spec << 'ENDSPEC'
         [app]
         title = Tetris Game
         package.name = tetrisgame
         package.domain = org.tetris
         source.dir = .
-        source.include_exts = py,png,jpg,kv,atlas
+        source.include_exts = py
         version = 1.0
-        requirements = python3,kivy
+        requirements = python3,kivy==2.1.0
         orientation = portrait
         fullscreen = 0
         android.permissions = INTERNET
         android.api = 30
         android.minapi = 21
-        android.ndk = 23b
+        android.ndk = 25b
         android.sdk = 30
         android.arch = armeabi-v7a
-        android.allow_backup = True
         
         [buildozer]
         log_level = 2
         warn_on_root = 0
-        SPECEOF
+        ENDSPEC
     
-    - name: Build APK with Buildozer
+    - name: Build APK
       run: |
-        export APP_ANDROID_ACCEPT_SDK_LICENSE=1
+        export ANDROID_HOME=/usr/local/lib/android/sdk
+        export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
         buildozer android debug
       timeout-minutes: 60
     
