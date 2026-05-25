@@ -30,28 +30,27 @@ jobs:
     
     - name: Setup Android SDK manually
       run: |
-        # Setup directories
         export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
-        export ANDROID_SDK_ROOT=$ANDROID_HOME
         mkdir -p $ANDROID_HOME
         
         # Download command line tools
         wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
         unzip -q commandlinetools-linux-9477386_latest.zip
+        
+        # Move to correct path structure
         mkdir -p $ANDROID_HOME/cmdline-tools
         mv cmdline-tools $ANDROID_HOME/cmdline-tools/latest
         
-        # Set environment
+        # Setup environment
+        export ANDROID_SDK_ROOT=$ANDROID_HOME
         export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
         
         # Accept licenses
         mkdir -p $HOME/.android
         touch $HOME/.android/repositories.cfg
-        yes | sdkmanager --licenses > /dev/null 2>&1 || true
         
-        # Install required SDK components
-        sdkmanager "platform-tools" "platforms;android-30" "build-tools;30.0.3" > /dev/null 2>&1 || true
-        sdkmanager "extras;android;m2repository" > /dev/null 2>&1 || true
+        # Install SDK components
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "platform-tools" "platforms;android-30" "build-tools;30.0.3"
     
     - name: Build APK
       run: |
@@ -69,11 +68,14 @@ jobs:
         path: bin/*.apk
         retention-days: 90
     
-    - name: Check buildozer log if failed
+    - name: Debug on failure
       if: failure()
       run: |
-        echo "=== Buildozer Log ==="
-        cat .buildozer/android/platform/build.log 2>/dev/null || echo "No build log found"
-        echo "=== SDK Contents ==="
-        ls -la $HOME/.buildozer/android/platform/android-sdk/ 2>/dev/null || echo "SDK not found"
-        ls -la $HOME/.buildozer/android/platform/android-sdk/build-tools/ 2>/dev/null || echo "Build tools not found"
+        echo "=== ANDROID_HOME contents ==="
+        ls -la $HOME/.buildozer/android/platform/android-sdk/
+        echo "=== Build tools ==="
+        ls -la $HOME/.buildozer/android/platform/android-sdk/build-tools/ 2>/dev/null || echo "No build tools"
+        echo "=== cmdline-tools ==="
+        ls -la $HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/ 2>/dev/null || echo "No cmdline tools"
+        echo "=== Build log ==="
+        cat .buildozer/android/platform/build.log 2>/dev/null || echo "No build log"
