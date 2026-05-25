@@ -1,0 +1,98 @@
+name: Build Tetris APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:  # Bisa trigger manual
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          python3-pip \
+          build-essential \
+          git \
+          python3-dev \
+          python3-pip \
+          python3-setuptools \
+          python3-virtualenv \
+          libffi-dev \
+          libssl-dev \
+          libncurses5-dev \
+          libncursesw5-dev \
+          libtinfo5 \
+          zlib1g-dev \
+          libreadline-dev \
+          libbz2-dev \
+          libsqlite3-dev \
+          openjdk-11-jdk \
+          zip \
+          unzip \
+          autoconf \
+          libtool \
+          pkg-config \
+          cmake
+        pip install --upgrade pip setuptools wheel
+        pip install cython buildozer
+    
+    - name: Create Buildozer spec
+      run: |
+        cat > buildozer.spec << 'SPECEOF'
+        [app]
+        title = Tetris Game
+        package.name = tetrisgame
+        package.domain = org.tetris
+        source.dir = .
+        source.include_exts = py,png,jpg,kv,atlas
+        version = 1.0
+        requirements = python3,kivy
+        orientation = portrait
+        fullscreen = 0
+        android.permissions = INTERNET
+        android.api = 30
+        android.minapi = 21
+        android.ndk = 23b
+        android.sdk = 30
+        android.arch = armeabi-v7a
+        android.allow_backup = True
+        
+        [buildozer]
+        log_level = 2
+        warn_on_root = 0
+        SPECEOF
+    
+    - name: Build APK with Buildozer
+      run: |
+        buildozer init
+        # Update spec dengan konfigurasi kita
+        cp buildozer.spec buildozer.spec.backup
+        buildozer android debug
+      timeout-minutes: 60
+    
+    - name: Upload APK
+      uses: actions/upload-artifact@v3
+      with:
+        name: Tetris-APK
+        path: bin/*.apk
+        retention-days: 90
+    
+    - name: Create Release
+      if: success()
+      run: |
+        echo "APK berhasil dibuat!"
+        ls -la bin/
+
+
